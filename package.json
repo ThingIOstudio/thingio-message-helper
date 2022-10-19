@@ -1,5 +1,5 @@
 {
-  "name": "platformio-message-helper",
+  "name": "thingio-message-helper",
   "version": "1.0.0",
   "description": "The message helper for thingio plugin and iframe web.",
   "main": "dist/index.cjs.js",
@@ -24,11 +24,7 @@
     "rollup-plugin-node-builtins": "^2.1.2",
     "rollup-plugin-terser": "^7.0.2",
     "tslib": "^2.4.0",
-    "typescript": "^4.8.4"
-  },
-  "dependencies": {
-    "@grpc/grpc-js": "^1.7.2",
-    "@grpc/proto-loader": "^0.7.3",
+    "typescript": "^4.8.4",
     "@types/node": "^18.11.0"
   }
 }
