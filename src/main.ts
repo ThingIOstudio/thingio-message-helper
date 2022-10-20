@@ -19,15 +19,20 @@ class Event {
     this.handleMap.clear();
   };
   private handleMap: Map<string, Function[]>;
+  private active: boolean = false;
 
   public write: (body: any) => void = (body) => {
-    window.parent.postMessage(
-      {
-        command: 'write',
-        body
-      },
-      '*'
-    );
+    if (this.active) {
+      window.parent.postMessage(
+        {
+          command: 'write',
+          body
+        },
+        '*'
+      );
+    } else {
+      this.emit('error', 'The stream has been ended.');
+    }
   };
 
   public end: () => void = () => {
@@ -37,10 +42,12 @@ class Event {
       },
       '*'
     );
+    this.active = false;
   };
 
   constructor() {
     this.handleMap = new Map()
+    this.active = true;
   }
 }
 
