@@ -4,7 +4,7 @@ The message helper for thingio plugin and iframe web.
 
 The usage is below:
 
-## Attension
+## Attention
 
 Put the code into the iframe html script first.
 
