@@ -9,6 +9,14 @@
   "license": "MIT",
   "private": false,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ThingIOstudio/thingio-message-helper.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ThingIOstudio/thingio-message-helper/issues"
+  },
+  "homepage": "https://github.com/ThingIOstudio/thingio-message-helper#readme",
   "scripts": {
     "build": "rollup --config"
   },
