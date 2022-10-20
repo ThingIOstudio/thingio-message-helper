@@ -20,8 +20,27 @@ class Event {
   };
   private handleMap: Map<string, Function[]>;
 
+  public write: (body: any) => void = (body) => {
+    window.parent.postMessage(
+      {
+        command: 'write',
+        body
+      },
+      '*'
+    );
+  };
+
+  public end: () => void = () => {
+    window.parent.postMessage(
+      {
+        command: 'client-end'
+      },
+      '*'
+    );
+  };
+
   constructor() {
-    this.handleMap = new Map();
+    this.handleMap = new Map()
   }
 }
 
@@ -66,7 +85,6 @@ export const request: (url: string, body: any) => Promise<{ response: any }> = (
  * @returns Event The Event object can be used as eventListener
  */
 export const streamRequest: (url: string, body: any) => Event = (url, body) => {
-  const event = new Event();
   window.parent.postMessage(
     {
       command: 'stream-request',
@@ -75,6 +93,8 @@ export const streamRequest: (url: string, body: any) => Event = (url, body) => {
     },
     '*'
   );
+
+  const event = new Event();
 
   const requestFunc = (evt: MessageEvent<any>) => {
     const handleMap: { [key: string]: (evt: any) => void } = {

@@ -21,7 +21,9 @@ const setFirstLetterLowercase: (str: string) => string = (str) => {
 };
 
 interface CustomEvent {
-  on: (message: string, handler: (data?: any) => void) => void
+  on: (message: string, handler: (data?: any) => void) => void;
+  write?: (data: any) => void;
+  end?: () => void;
 }
 
 export default class ThingIOAPIAdapter {
@@ -47,6 +49,7 @@ export default class ThingIOAPIAdapter {
   private packageDefinition: any;
   private grpc: any;
   private protoLoader: any;
+  private currentStreamRequestEvent: CustomEvent;
 
   public request(url: string, body: any): Promise<any> {
     return new Promise((resolve, reject) => {
@@ -100,9 +103,10 @@ export default class ThingIOAPIAdapter {
         try {
           const thingioProto: any = this.grpc.loadPackageDefinition(this.packageDefinition)[packageName];
           const client = new thingioProto[serviceName](this.origin, this.grpc.credentials.createInsecure()) as {
-            [key: string]: (param: any) => { on: (event: string, handler: (data?: any) => void) => void };
+            [key: string]: (param: any) => { on: (event: string, handler: (data?: any) => void) => void, write?: (body: any) => void, end?: () => void };
           };
           const call: CustomEvent = client[funcName](body);
+          this.currentStreamRequestEvent = call;
           return call;
         } catch (e) {
           throw e;
@@ -153,6 +157,11 @@ export default class ThingIOAPIAdapter {
               err: { message: (err as any).message, stack: (err as any).stack }
             });
           }
+        } else if (command === 'write') {
+          this.currentStreamRequestEvent.write(body);
+        } else if (command === 'client-end') {
+          this.currentStreamRequestEvent.end();
+          this.currentStreamRequestEvent = undefined;
         } else if (command === 'command') {
           const handler = this.commandHandler.get(url);
           if (typeof handler === 'function') {
