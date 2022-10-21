@@ -1,6 +1,6 @@
 {
   "name": "thingio-message-helper",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "description": "The message helper for thingio plugin and iframe web.",
   "main": "dist/index.cjs.js",
   "module": "dist/index.esm.js",
