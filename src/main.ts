@@ -1,4 +1,6 @@
-class Event {
+import { requestMessageCmd } from './utils/constant';
+
+export class Event {
   public emit: (message: string, body: any) => void = (message, body) => {
     const functionList = this.handleMap.get(message);
     if (functionList && functionList.length > 0) {
@@ -104,6 +106,10 @@ export const streamRequest: (url: string, body: any) => Event = (url, body) => {
   const event = new Event();
 
   const requestFunc = (evt: MessageEvent<any>) => {
+    if (requestMessageCmd.includes(evt.data.command)) {
+      // The request command has not been solved
+      event.emit('error', 'The environment is not support the message forward! Please check if the web used in vscode webview.');
+    }
     const handleMap: { [key: string]: (evt: any) => void } = {
       error: (evt) => {
         event.emit('error', evt.data.err.message);
