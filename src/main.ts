@@ -117,6 +117,9 @@ export const streamRequest: (url: string, body: any) => Event = (url, body) => {
       },
       status: (evt) => {
         event.emit('status', evt.data.response);
+      },
+      response: (evt) => {
+        event.emit('response', evt.data.response);
       }
     };
 
