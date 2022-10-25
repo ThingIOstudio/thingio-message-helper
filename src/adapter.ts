@@ -49,7 +49,7 @@ export default class ThingIOAPIAdapter {
   private packageDefinition: any;
   private grpc: any;
   private protoLoader: any;
-  private currentStreamRequestEvent: CustomEvent;
+  private streamEventMap: Map<string, CustomEvent> = new Map();
 
   public request(url: string, body: any): Promise<any> {
     return new Promise((resolve, reject) => {
@@ -90,7 +90,7 @@ export default class ThingIOAPIAdapter {
     });
   }
 
-  public streamRequest(url: string, body: any): CustomEvent | undefined {
+  public streamRequest(url: string, body: any, timeStamp: string): CustomEvent | undefined {
     try {
       if (url.split('.').length !== 3) {
         throw new Error("Please input the packagename, serviceName and funcName like this. ('package.service.func')");
@@ -106,7 +106,7 @@ export default class ThingIOAPIAdapter {
             [key: string]: (param: any) => { on: (event: string, handler: (data?: any) => void) => void, write?: (body: any) => void, end?: () => void };
           };
           const call: CustomEvent = client[funcName](body);
-          this.currentStreamRequestEvent = call;
+          this.streamEventMap.set(timeStamp, call);
           return call;
         } catch (e) {
           throw e;
@@ -118,35 +118,37 @@ export default class ThingIOAPIAdapter {
 
   public setWebviewMessageContainer(panel: any, subscriptions: { dispose(): any }[]): void {
     panel.webview.onDidReceiveMessage(
-      async ({ command, url, body }) => {
+      async ({ command, url, body, timeStamp }) => {
         if (command === 'request') {
           try {
             const response = await this.request(url, body);
-            panel.webview.postMessage({ command: 'response', response });
+            panel.webview.postMessage({ command: 'response', response, timeStamp });
           } catch (err) {
             panel.webview.postMessage({
               command: 'error',
-              err: { message: (err as any).message, stack: (err as any).stack }
+              err: { message: (err as any).message, stack: (err as any).stack },
+              timeStamp
             });
           }
         } else if (command === 'stream-request') {
           try {
-            const responseEvent = this.streamRequest(url, body);
+            const responseEvent = this.streamRequest(url, body, timeStamp);
             if (responseEvent) {
               responseEvent.on('end', function () {
-                panel.webview.postMessage({ command: 'end' });
+                panel.webview.postMessage({ command: 'end', timeStamp });
               });
               responseEvent.on('error', function (err) {
                 panel.webview.postMessage({
                   command: 'error',
-                  err: { message: (err as any).message, stack: (err as any).stack }
+                  err: { message: (err as any).message, stack: (err as any).stack },
+                  timeStamp
                 });
               });
               responseEvent.on('status', function (status) {
-                panel.webview.postMessage({ command: 'status', response: status });
+                panel.webview.postMessage({ command: 'status', response: status, timeStamp });
               });
               responseEvent.on('data', function (data) {
-                panel.webview.postMessage({ command: 'data', response: data });
+                panel.webview.postMessage({ command: 'data', response: data, timeStamp });
               });
             } else {
               throw new Error('The response is not a stream or request failed.');
@@ -154,18 +156,19 @@ export default class ThingIOAPIAdapter {
           } catch (err) {
             panel.webview.postMessage({
               command: 'error',
-              err: { message: (err as any).message, stack: (err as any).stack }
+              err: { message: (err as any).message, stack: (err as any).stack },
+              timeStamp
             });
           }
         } else if (command === 'write') {
-          this.currentStreamRequestEvent.write(body);
+          this.streamEventMap.get(timeStamp).write(body);
         } else if (command === 'client-end') {
-          this.currentStreamRequestEvent.end();
-          this.currentStreamRequestEvent = undefined;
+          this.streamEventMap.get(timeStamp).end();
+          this.streamEventMap.delete(timeStamp);
         } else if (command === 'command') {
           const handler = this.commandHandler.get(url);
           if (typeof handler === 'function') {
-            handler(panel, url, body);
+            handler(panel, timeStamp, url, body);
           }
         }
       },

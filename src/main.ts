@@ -1,5 +1,30 @@
 import { requestMessageCmd } from './utils/constant';
 
+type MessageHandler = ((this: WindowEventHandlers, ev: MessageEvent<any>) => any) & ((this: Window, ev: MessageEvent<any>) => any);
+
+export class MessageHelper {
+  private static handleMessageMap: Map<string, MessageHandler> = new Map();
+  public addListener(timeStamp: string, handler: MessageHandler) {
+    MessageHelper.handleMessageMap.set(timeStamp, handler);
+  }
+
+  public removeListener(timeStamp: string) {
+    MessageHelper.handleMessageMap.delete(timeStamp);
+  }
+
+  public static getHandler = (evt: MessageEvent<any>) => {
+    const { timeStamp } = evt.data;
+    const handler = MessageHelper.handleMessageMap.get(timeStamp);
+    if (handler) {
+      (handler as any)(evt);
+    }
+  }
+
+  constructor() {
+    window.onmessage = MessageHelper.getHandler;
+  }
+}
+
 export class Event {
   public emit: (message: string, body: any) => void = (message, body) => {
     const functionList = this.handleMap.get(message);
@@ -22,34 +47,65 @@ export class Event {
   };
   private handleMap: Map<string, Function[]>;
   private active: boolean = false;
+  private url: string = '';
+  private body: any = {};
+  private timeStamp: string = '';
+  public setActive: (flag: boolean) => void = (flag) => {
+    this.active = flag;
+  }
+
+  public getTimeStamp: () => string = () => {
+    return this.timeStamp;
+  }
 
   public write: (body: any) => void = (body) => {
-    if (this.active) {
+    if (this.active && this.handleMap.size > 0) {
       window.parent.postMessage(
         {
           command: 'write',
+          timeStamp: this.timeStamp,
           body
         },
         '*'
       );
     } else {
-      this.emit('error', 'The stream has been ended.');
+      throw new Error('The stream has been ended.')
     }
   };
 
   public end: () => void = () => {
+    if (this.active) {
+      window.parent.postMessage(
+        {
+          command: 'client-end',
+          timeStamp: this.timeStamp
+        },
+        '*'
+      );
+      this.active = false;
+    } else {
+      throw new Error('The stream has been ended.')
+    }
+  };
+
+  public start: () => void = () => {
     window.parent.postMessage(
       {
-        command: 'client-end'
+        command: 'stream-request',
+        body: this.body,
+        url: this.url,
+        timeStamp: this.timeStamp
       },
       '*'
     );
-    this.active = false;
-  };
-
-  constructor() {
-    this.handleMap = new Map()
     this.active = true;
+  }
+
+  constructor(url: string, body: any) {
+    this.url = url;
+    this.body = body;
+    this.timeStamp = Date.now().toString(36) + url;
+    this.handleMap = new Map();
   }
 }
 
@@ -61,16 +117,19 @@ export class Event {
  */
 export const request: (url: string, body: any) => Promise<{ response: any }> = (url, body) => {
   return new Promise((resolve, reject) => {
+    const timeStamp = Date.now().toString(36);
     window.parent.postMessage(
       {
         command: 'request',
         body,
-        url
+        url,
+        timeStamp
       },
       '*'
     );
 
     const requestFunc = (evt: MessageEvent<any>) => {
+      messageHandler.removeListener(timeStamp);
       if (Array.isArray(evt.data.response)) {
         resolve(evt.data);
       }
@@ -83,7 +142,9 @@ export const request: (url: string, body: any) => Promise<{ response: any }> = (
       }
     };
 
-    window.onmessage = requestFunc;
+    const messageHandler = new MessageHelper();
+
+    messageHandler.addListener(timeStamp, requestFunc);
   });
 };
 
@@ -94,16 +155,7 @@ export const request: (url: string, body: any) => Promise<{ response: any }> = (
  * @returns Event The Event object can be used as eventListener
  */
 export const streamRequest: (url: string, body: any) => Event = (url, body) => {
-  window.parent.postMessage(
-    {
-      command: 'stream-request',
-      body,
-      url
-    },
-    '*'
-  );
-
-  const event = new Event();
+  const event = new Event(url, body);
 
   const requestFunc = (evt: MessageEvent<any>) => {
     if (requestMessageCmd.includes(evt.data.command)) {
@@ -116,7 +168,7 @@ export const streamRequest: (url: string, body: any) => Event = (url, body) => {
       },
       end: (evt) => {
         event.emit('end', evt.data);
-        event.clearAll();
+        // event.clearAll();
       },
       data: (evt) => {
         event.emit('data', evt.data.response);
@@ -132,7 +184,9 @@ export const streamRequest: (url: string, body: any) => Event = (url, body) => {
     handleMap[evt.data.command](evt);
   };
 
-  window.onmessage = requestFunc;
+  const messageHandler = new MessageHelper();
+
+  messageHandler.addListener(event.getTimeStamp(), requestFunc);
   return event;
 };
 
@@ -144,11 +198,13 @@ export const streamRequest: (url: string, body: any) => Event = (url, body) => {
  */
 export const command: (url: string, body?: any) => Promise<any> = (url, body = {}) => {
   return new Promise((resolve, reject) => {
+    const timeStamp = Date.now().toString(36);
     window.parent.postMessage(
       {
         command: 'command',
         body,
-        url
+        url,
+        timeStamp
       },
       '*'
     );
@@ -161,7 +217,9 @@ export const command: (url: string, body?: any) => Promise<any> = (url, body = {
       }
     };
 
-    window.onmessage = requestFunc;
+    const messageHandler = new MessageHelper();
+
+    messageHandler.addListener(timeStamp, requestFunc);
   });
 };
 
