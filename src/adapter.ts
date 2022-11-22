@@ -57,8 +57,8 @@ export default class ThingIOAPIAdapter {
         reject(new Error("Please input the packagename, serviceName and funcName like this. ('package.service.func')"));
       }
       const [packageName, serviceName, funcName] = url
-        .split('.')
-        .map((item, index) => (index === 1 ? item : setFirstLetterLowercase(item)));
+        .split('.');
+        // .map((item, index) => (index === 1 ? item : setFirstLetterLowercase(item)));
       try {
         const thingioProto: any = this.grpc.loadPackageDefinition(this.packageDefinition)[packageName];
         const client = new thingioProto[serviceName](this.origin, this.grpc.credentials.createInsecure()) as {
