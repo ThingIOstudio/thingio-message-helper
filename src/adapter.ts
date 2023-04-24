@@ -16,7 +16,9 @@
  *
  */
 
-const setFirstLetterLowercase: (str: string) => string = (str) => {
+export const setFirstLetterLowercase: (str: string) => string = (str) => {
+  if (typeof str !== 'string') throw new Error('Wrong Type');
+  if (str.length === 0) return str;
   return str[0].toLowerCase().concat(str.slice(1));
 };
 
@@ -56,22 +58,27 @@ export default class ThingIOAPIAdapter {
       if (url.split('.').length !== 3) {
         reject(new Error("Please input the packagename, serviceName and funcName like this. ('package.service.func')"));
       }
-      const [packageName, serviceName, funcName] = url
-        .split('.');
-        // .map((item, index) => (index === 1 ? item : setFirstLetterLowercase(item)));
+      const [packageName, serviceName, funcName] = url.split('.');
+      // .map((item, index) => (index === 1 ? item : setFirstLetterLowercase(item)));
       try {
         const thingioProto: any = this.grpc.loadPackageDefinition(this.packageDefinition)[packageName];
         const client = new thingioProto[serviceName](this.origin, this.grpc.credentials.createInsecure()) as {
-          [key: string]: (param: any, handler: (err: null | Error, response: any) => void) => { on: (event: string, handler: (data?: any) => void) => void };
+          [key: string]: (
+            param: any,
+            handler: (err: null | Error, response: any) => void
+          ) => { on: (event: string, handler: (data?: any) => void) => void };
         };
         const responseStreamArr: unknown[] = [];
-        const call: { on: (event: string, handler: (data?: any) => void) => void } = client[funcName](body, function (err, response) {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(response);
+        const call: { on: (event: string, handler: (data?: any) => void) => void } = client[funcName](
+          body,
+          function (err, response) {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(response);
+            }
           }
-        });
+        );
         call.on('end', function () {
           resolve(responseStreamArr);
         });
@@ -100,17 +107,21 @@ export default class ThingIOAPIAdapter {
         .split('.')
         .map((item, index) => (index === 1 ? item : setFirstLetterLowercase(item)));
 
-        try {
-          const thingioProto: any = this.grpc.loadPackageDefinition(this.packageDefinition)[packageName];
-          const client = new thingioProto[serviceName](this.origin, this.grpc.credentials.createInsecure()) as {
-            [key: string]: (param: any) => { on: (event: string, handler: (data?: any) => void) => void, write?: (body: any) => void, end?: () => void };
+      try {
+        const thingioProto: any = this.grpc.loadPackageDefinition(this.packageDefinition)[packageName];
+        const client = new thingioProto[serviceName](this.origin, this.grpc.credentials.createInsecure()) as {
+          [key: string]: (param: any) => {
+            on: (event: string, handler: (data?: any) => void) => void;
+            write?: (body: any) => void;
+            end?: () => void;
           };
-          const call: CustomEvent = client[funcName](body);
-          this.streamEventMap.set(timeStamp, call);
-          return call;
-        } catch (e) {
-          throw e;
-        }
+        };
+        const call: CustomEvent = client[funcName](body);
+        this.streamEventMap.set(timeStamp, call);
+        return call;
+      } catch (e) {
+        throw e;
+      }
     } catch (e) {
       console.log(e);
     }

@@ -1,6 +1,14 @@
 import { requestMessageCmd } from './utils/constant';
 
-type MessageHandler = ((this: WindowEventHandlers, ev: MessageEvent<any>) => any) & ((this: Window, ev: MessageEvent<any>) => any);
+interface WindowEventHandlers { }
+
+interface MessageEvent<T> {
+  /** Returns the data of the message. */
+  readonly data: T;
+}
+
+type MessageHandler = ((this: WindowEventHandlers, ev: MessageEvent<any>) => any) &
+  ((this: Window, ev: MessageEvent<any>) => any);
 
 export class MessageHelper {
   private static handleMessageMap: Map<string, MessageHandler> = new Map();
@@ -18,7 +26,7 @@ export class MessageHelper {
     if (handler) {
       (handler as any)(evt);
     }
-  }
+  };
 
   constructor() {
     window.onmessage = MessageHelper.getHandler;
@@ -52,11 +60,11 @@ export class Event {
   private timeStamp: string = '';
   public setActive: (flag: boolean) => void = (flag) => {
     this.active = flag;
-  }
+  };
 
   public getTimeStamp: () => string = () => {
     return this.timeStamp;
-  }
+  };
 
   public write: (body: any) => void = (body) => {
     if (this.active && this.handleMap.size > 0) {
@@ -69,7 +77,7 @@ export class Event {
         '*'
       );
     } else {
-      throw new Error('The stream has been ended.')
+      throw new Error('The stream has been ended.');
     }
   };
 
@@ -84,7 +92,7 @@ export class Event {
       );
       this.active = false;
     } else {
-      throw new Error('The stream has been ended.')
+      throw new Error('The stream has been ended.');
     }
   };
 
@@ -99,7 +107,7 @@ export class Event {
       '*'
     );
     this.active = true;
-  }
+  };
 
   constructor(url: string, body: any) {
     this.url = url;
@@ -160,7 +168,10 @@ export const streamRequest: (url: string, body: any) => Event = (url, body) => {
   const requestFunc = (evt: MessageEvent<any>) => {
     if (requestMessageCmd.includes(evt.data.command)) {
       // The request command has not been solved
-      event.emit('error', 'The environment is not support the message forward! Please check if the web used in vscode webview.');
+      event.emit(
+        'error',
+        'The environment is not support the message forward! Please check if the web used in vscode webview.'
+      );
     }
     const handleMap: { [key: string]: (evt: any) => void } = {
       error: (evt) => {
@@ -168,6 +179,7 @@ export const streamRequest: (url: string, body: any) => Event = (url, body) => {
       },
       end: (evt) => {
         event.emit('end', evt.data);
+        messageHandler.removeListener(event.getTimeStamp());
         // event.clearAll();
       },
       data: (evt) => {
@@ -215,6 +227,7 @@ export const command: (url: string, body?: any) => Promise<any> = (url, body = {
       } else {
         reject('Undefined Commands');
       }
+      messageHandler.removeListener(timeStamp);
     };
 
     const messageHandler = new MessageHelper();
