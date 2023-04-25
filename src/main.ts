@@ -236,5 +236,31 @@ export const command: (url: string, body?: any) => Promise<any> = (url, body = {
   });
 };
 
+export const startListen = (url: string, body: any) => {
+  const event = new Event(url, body);
+
+  window.parent.postMessage(
+    {
+      command: 'command',
+      body,
+      url,
+      timeStamp: event.getTimeStamp()
+    },
+    '*'
+  );
+
+  const messageHandler = new MessageHelper();
+
+  const requestFunc = (evt: MessageEvent<any>) => {
+    if (evt.data.command === 'callback') {
+      event.emit('response', evt.data.response);
+    }
+  };
+
+  messageHandler.addListener(event.getTimeStamp(), requestFunc);
+
+  return event;
+};
+
 export { default as ThingIOAPIAdapter } from './adapter';
 export { default as initVscodeIframe } from './browser';
