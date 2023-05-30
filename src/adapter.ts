@@ -51,7 +51,7 @@ export default class ThingIOAPIAdapter {
   private packageDefinition: any;
   private grpc: any;
   private protoLoader: any;
-  private streamEventMap: Map<string, CustomEvent> = new Map();
+  private streamEventMap: Map<string, { call: CustomEvent, title: string }> = new Map();
 
   public request(url: string, body: any): Promise<any> {
     return new Promise((resolve, reject) => {
@@ -97,7 +97,7 @@ export default class ThingIOAPIAdapter {
     });
   }
 
-  public streamRequest(url: string, body: any, timeStamp: string): CustomEvent | undefined {
+  public streamRequest(url: string, body: any, timeStamp: string, panel: any): CustomEvent | undefined {
     try {
       if (url.split('.').length !== 3) {
         throw new Error("Please input the packagename, serviceName and funcName like this. ('package.service.func')");
@@ -117,7 +117,7 @@ export default class ThingIOAPIAdapter {
           };
         };
         const call: CustomEvent = client[funcName](body);
-        this.streamEventMap.set(timeStamp, call);
+        this.streamEventMap.set(timeStamp, { call, title: panel.title });
         return call;
       } catch (e) {
         throw e;
@@ -128,6 +128,13 @@ export default class ThingIOAPIAdapter {
   }
 
   public setWebviewMessageContainer(panel: any, subscriptions: { dispose(): any }[]): void {
+    panel.onDidDispose(() => {
+      for (const { title, call } of this.streamEventMap.values()) {
+        if (title === panel.title) {
+          call.end();
+        }
+      }
+    });
     panel.webview.onDidReceiveMessage(
       async ({ command, url, body, timeStamp }) => {
         if (command === 'request') {
@@ -143,7 +150,7 @@ export default class ThingIOAPIAdapter {
           }
         } else if (command === 'stream-request') {
           try {
-            const responseEvent = this.streamRequest(url, body, timeStamp);
+            const responseEvent = this.streamRequest(url, body, timeStamp, panel);
             if (responseEvent) {
               responseEvent.on('end', function () {
                 panel.webview.postMessage({ command: 'end', timeStamp });
@@ -172,9 +179,9 @@ export default class ThingIOAPIAdapter {
             });
           }
         } else if (command === 'write') {
-          this.streamEventMap.get(timeStamp).write(body);
+          this.streamEventMap.get(timeStamp).call.write(body);
         } else if (command === 'client-end') {
-          this.streamEventMap.get(timeStamp).end();
+          this.streamEventMap.get(timeStamp).call.end();
           this.streamEventMap.delete(timeStamp);
         } else if (command === 'command') {
           const handler = this.commandHandler.get(url);
