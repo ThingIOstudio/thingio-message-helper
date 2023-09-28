@@ -29,7 +29,7 @@ export class MessageHelper {
   };
 
   constructor() {
-    window.onmessage = MessageHelper.getHandler;
+    window.addEventListener('message', MessageHelper.getHandler);
   }
 }
 
