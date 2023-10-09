@@ -53,7 +53,7 @@ export class Event {
   public clearAll: () => void = () => {
     this.handleMap.clear();
   };
-  private handleMap: Map<string, Function[]>;
+  private handleMap: Map<string, ((body: any) => void)[]>;
   private active: boolean = false;
   private url: string = '';
   private body: any = {};

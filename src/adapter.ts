@@ -28,14 +28,78 @@ interface CustomEvent {
   end?: () => void;
 }
 
-export default class ThingIOAPIAdapter {
-  constructor(origin: string, protoPath: string, commandHandler: Map<string, Function>, grpc: any, protoLoader: any) {
-    this.origin = origin;
-    this.protoPath = protoPath;
-    this.commandHandler = commandHandler;
-    this.grpc = grpc;
-    this.protoLoader = protoLoader;
+interface Webview {
+  postMessage(message: { command: string; err?: any; response?: any; timeStamp: string }): unknown;
+  onDidReceiveMessage(arg0: ({ command, url, body, timeStamp }: { command: string; url: string; body: unknown; timeStamp: string; err: { message: string; stack: unknown } }) => Promise<void>, undefined: undefined, subscriptions: { dispose(): any }[]): unknown;
+}
 
+interface WebviewPanel {
+  webview: Webview;
+  title: string;
+  onDidDispose(handle: () => void): unknown;
+}
+
+export type Handler = (
+  panel: WebviewPanel,
+  timestamp: string,
+  url: string,
+  body: unknown
+) => void;
+
+interface PackageDefinition {
+  [index: string]: unknown;
+}
+
+interface GrpcObject {
+  [index: string]: unknown;
+}
+
+interface Grpc {
+  credentials: any;
+  /**
+ * Load a gRPC package definition as a gRPC object hierarchy.
+ * @param packageDef The package definition object.
+ * @return The resulting gRPC object.
+ */
+  loadPackageDefinition(packageDefinition: PackageDefinition): GrpcObject;
+}
+
+interface Options {
+
+  /**
+   * Keeps field casing instead of converting to camel case
+   */
+  keepCase?: boolean;
+
+  /**
+   * Long conversion type.
+   * Valid values are `String` and `Number` (the global types).
+   * Defaults to copy the present value, which is a possibly unsafe number without and a {@link Long} with a long library.
+   */
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  longs?: Function;
+
+  /**
+   * Enum value conversion type.
+   * Only valid value is `String` (the global type).
+   * Defaults to copy the present value, which is the numeric id.
+   */
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  enums?: Function;
+
+  /** Also sets default values on the resulting object */
+  defaults?: boolean;
+
+  /** Includes virtual oneof properties set to the present field's name, if any */
+  oneofs?: boolean;
+}
+
+interface ProtoLoader {
+  loadSync(filename: string | string[], options: Options): PackageDefinition;
+}
+
+export default class ThingIOAPIAdapter {
+  constructor(private origin: string, private protoPath: string, private commandHandler: Map<string, Handler>, private grpc: Grpc, private protoLoader: ProtoLoader) {
     this.packageDefinition = this.protoLoader.loadSync(this.protoPath, {
       keepCase: true,
       longs: String,
@@ -45,23 +109,19 @@ export default class ThingIOAPIAdapter {
     });
   }
 
-  private origin: string = '';
-  private protoPath: string = '';
-  private commandHandler: Map<string, Function> = new Map();
-  private packageDefinition: any;
-  private grpc: any;
-  private protoLoader: any;
-  private streamEventMap: Map<string, { call: CustomEvent, title: string }> = new Map();
+  private packageDefinition: PackageDefinition;
 
-  public request(url: string, body: any): Promise<any> {
+  private streamEventMap: Map<string, { call: CustomEvent; title: string }> = new Map();
+
+  public request(url: string, body: unknown): Promise<any> {
     return new Promise((resolve, reject) => {
       if (url.split('.').length !== 3) {
-        reject(new Error("Please input the packagename, serviceName and funcName like this. ('package.service.func')"));
+        reject(new Error('Please input the packagename, serviceName and funcName like this. (\'package.service.func\')'));
       }
       const [packageName, serviceName, funcName] = url.split('.');
       // .map((item, index) => (index === 1 ? item : setFirstLetterLowercase(item)));
       try {
-        const thingioProto: any = this.grpc.loadPackageDefinition(this.packageDefinition)[packageName];
+        const thingioProto = this.grpc.loadPackageDefinition(this.packageDefinition)[packageName];
         const client = new thingioProto[serviceName](this.origin, this.grpc.credentials.createInsecure()) as {
           [key: string]: (
             param: any,
@@ -69,7 +129,7 @@ export default class ThingIOAPIAdapter {
           ) => { on: (event: string, handler: (data?: any) => void) => void };
         };
         const responseStreamArr: unknown[] = [];
-        const call: { on: (event: string, handler: (data?: any) => void) => void } = client[funcName](
+        const call: { on: (event: string, handler: (data?: unknown) => void) => void } = client[funcName](
           body,
           function (err, response) {
             if (err) {
@@ -77,7 +137,7 @@ export default class ThingIOAPIAdapter {
             } else {
               resolve(response);
             }
-          }
+          },
         );
         call.on('end', function () {
           resolve(responseStreamArr);
@@ -97,37 +157,33 @@ export default class ThingIOAPIAdapter {
     });
   }
 
-  public streamRequest(url: string, body: any, timeStamp: string, panel: any): CustomEvent | undefined {
+  public streamRequest(url: string, body: unknown, timeStamp: string, panel: WebviewPanel): CustomEvent | undefined {
     try {
       if (url.split('.').length !== 3) {
-        throw new Error("Please input the packagename, serviceName and funcName like this. ('package.service.func')");
+        throw new Error('Please input the packagename, serviceName and funcName like this. (\'package.service.func\')');
       }
 
       const [packageName, serviceName, funcName] = url
         .split('.')
         .map((item, index) => (index === 1 ? item : setFirstLetterLowercase(item)));
 
-      try {
-        const thingioProto: any = this.grpc.loadPackageDefinition(this.packageDefinition)[packageName];
-        const client = new thingioProto[serviceName](this.origin, this.grpc.credentials.createInsecure()) as {
-          [key: string]: (param: any) => {
-            on: (event: string, handler: (data?: any) => void) => void;
-            write?: (body: any) => void;
-            end?: () => void;
-          };
+      const thingioProto = this.grpc.loadPackageDefinition(this.packageDefinition)[packageName];
+      const client = new thingioProto[serviceName](this.origin, this.grpc.credentials.createInsecure()) as {
+        [key: string]: (param: unknown) => {
+          on: (event: string, handler: (data?: unknown) => void) => void;
+          write?: (body: unknown) => void;
+          end?: () => void;
         };
-        const call: CustomEvent = client[funcName](body);
-        this.streamEventMap.set(timeStamp, { call, title: panel.title });
-        return call;
-      } catch (e) {
-        throw e;
-      }
+      };
+      const call: CustomEvent = client[funcName](body);
+      this.streamEventMap.set(timeStamp, { call, title: panel.title });
+      return call;
     } catch (e) {
       console.log(e);
     }
   }
 
-  public setWebviewMessageContainer(panel: any, subscriptions: { dispose(): any }[]): void {
+  public setWebviewMessageContainer(panel: WebviewPanel, subscriptions: { dispose(): any }[]): void {
     panel.onDidDispose(() => {
       for (const { title, call } of this.streamEventMap.values()) {
         if (title === panel.title) {
@@ -191,7 +247,7 @@ export default class ThingIOAPIAdapter {
         }
       },
       undefined,
-      subscriptions
+      subscriptions,
     );
   }
 }
