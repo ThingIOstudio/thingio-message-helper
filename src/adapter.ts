@@ -16,6 +16,8 @@
  *
  */
 
+import { WebviewPanel } from 'vscode';
+
 export const setFirstLetterLowercase: (str: string) => string = (str) => {
   if (typeof str !== 'string') throw new Error('Wrong Type');
   if (str.length === 0) return str;
@@ -26,17 +28,6 @@ interface CustomEvent {
   on: (message: string, handler: (data?: any) => void) => void;
   write?: (data: any) => void;
   end?: () => void;
-}
-
-interface Webview {
-  postMessage(message: { command: string; err?: any; response?: any; timeStamp: string }): unknown;
-  onDidReceiveMessage(arg0: ({ command, url, body, timeStamp }: { command: string; url: string; body: unknown; timeStamp: string; err: { message: string; stack: unknown } }) => Promise<void>, undefined: undefined, subscriptions: { dispose(): any }[]): unknown;
-}
-
-interface WebviewPanel {
-  webview: Webview;
-  title: string;
-  onDidDispose(handle: () => void): unknown;
 }
 
 export type Handler = (

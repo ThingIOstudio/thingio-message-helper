@@ -8,10 +8,11 @@ interface MessageEvent<T> {
 }
 
 type MessageHandler = ((this: WindowEventHandlers, ev: MessageEvent<any>) => any) &
-  ((this: Window, ev: MessageEvent<any>) => any);
+((this: Window, ev: MessageEvent<any>) => any);
 
 export class MessageHelper {
   private static handleMessageMap: Map<string, MessageHandler> = new Map();
+
   public addListener(timeStamp: string, handler: MessageHandler) {
     MessageHelper.handleMessageMap.set(timeStamp, handler);
   }
@@ -53,11 +54,17 @@ export class Event {
   public clearAll: () => void = () => {
     this.handleMap.clear();
   };
+
   private handleMap: Map<string, ((body: any) => void)[]>;
+
   private active: boolean = false;
+
   private url: string = '';
+
   private body: any = {};
+
   private timeStamp: string = '';
+
   public setActive: (flag: boolean) => void = (flag) => {
     this.active = flag;
   };
@@ -136,6 +143,8 @@ export const request: (url: string, body: any) => Promise<{ response: any }> = (
       '*'
     );
 
+    const messageHandler = new MessageHelper();
+    
     const requestFunc = (evt: MessageEvent<any>) => {
       messageHandler.removeListener(timeStamp);
       if (Array.isArray(evt.data.response)) {
@@ -150,8 +159,6 @@ export const request: (url: string, body: any) => Promise<{ response: any }> = (
       }
     };
 
-    const messageHandler = new MessageHelper();
-
     messageHandler.addListener(timeStamp, requestFunc);
   });
 };
@@ -165,6 +172,9 @@ export const request: (url: string, body: any) => Promise<{ response: any }> = (
 export const streamRequest: (url: string, body: any) => Event = (url, body) => {
   const event = new Event(url, body);
 
+
+  const messageHandler = new MessageHelper();
+
   const requestFunc = (evt: MessageEvent<any>) => {
     if (requestMessageCmd.includes(evt.data.command)) {
       // The request command has not been solved
@@ -174,29 +184,27 @@ export const streamRequest: (url: string, body: any) => Event = (url, body) => {
       );
     }
     const handleMap: { [key: string]: (evt: any) => void } = {
-      error: (evt) => {
-        event.emit('error', evt.data.err.message);
+      error: ({ data }) => {
+        event.emit('error', data.err.message);
       },
-      end: (evt) => {
+      end: ({ getTimeStamp }) => {
         event.emit('end', evt.data);
-        messageHandler.removeListener(event.getTimeStamp());
+        messageHandler.removeListener(getTimeStamp());
         // event.clearAll();
       },
-      data: (evt) => {
-        event.emit('data', evt.data.response);
+      data: ({ data }) => {
+        event.emit('data', data.response);
       },
-      status: (evt) => {
-        event.emit('status', evt.data.response);
+      status: ({ data }) => {
+        event.emit('status', data.response);
       },
-      response: (evt) => {
-        event.emit('response', evt.data.response);
+      response: ({ data }) => {
+        event.emit('response', data.response);
       }
     };
 
     handleMap[evt.data.command](evt);
   };
-
-  const messageHandler = new MessageHelper();
 
   messageHandler.addListener(event.getTimeStamp(), requestFunc);
   return event;
@@ -221,6 +229,8 @@ export const command: (url: string, body?: any) => Promise<any> = (url, body = {
       '*'
     );
 
+    const messageHandler = new MessageHelper();
+    
     const requestFunc = (evt: MessageEvent<any>) => {
       if (evt.data.command === 'callback') {
         resolve(evt.data.response);
@@ -230,7 +240,6 @@ export const command: (url: string, body?: any) => Promise<any> = (url, body = {
       messageHandler.removeListener(timeStamp);
     };
 
-    const messageHandler = new MessageHelper();
 
     messageHandler.addListener(timeStamp, requestFunc);
   });

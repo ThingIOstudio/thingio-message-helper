@@ -20,7 +20,7 @@
   "scripts": {
     "build": "rollup --config",
     "prepublish": "yarn build && npm version patch",
-    "line": "eslint . --fix",
+    "lint": "eslint . --fix",
     "test": "jest"
   },
   "devDependencies": {

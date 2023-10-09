@@ -13,7 +13,7 @@ module.exports = {
   },
   plugins: ['@typescript-eslint', 'import'],
   root: true,
-  ignorePatterns: ['dist/**/*', 'jest.config.cjs', '.eslintrc.cjs'],
+  ignorePatterns: ['dist/**/*', 'jest.config.cjs', '.eslintrc.cjs', 'rollup.config.js', 'tests/**/*'],
   rules: {
     '@typescript-eslint/no-explicit-any': 0,
     '@typescript-eslint/member-delimiter-style': ['error', {
