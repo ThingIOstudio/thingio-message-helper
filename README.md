@@ -1,4 +1,4 @@
-# Thingio-message-helper
+# Thingio-message-helper ![NPM Version](https://img.shields.io/npm/v/thingio-message-helper)
 
 The message helper for thingio plugin and iframe web.
 
